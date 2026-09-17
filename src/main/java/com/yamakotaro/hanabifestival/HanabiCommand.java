@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 public class HanabiCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
-            "start", "stop", "reload", "status", "gui", "setpoint", "delpoint", "points");
+            "start", "stop", "reload", "status", "list", "stats", "gui", "setpoint", "delpoint", "points");
 
     private final HanabiFestivalPlugin plugin;
 
@@ -40,6 +40,8 @@ public class HanabiCommand implements CommandExecutor, TabCompleter {
             case "stop" -> handleStop(sender);
             case "reload" -> handleReload(sender);
             case "status" -> handleStatus(sender);
+            case "list" -> handleList(sender);
+            case "stats" -> handleStats(sender);
             case "gui" -> handleGui(sender);
             case "setpoint" -> handleSetPoint(sender, args);
             case "delpoint" -> handleDelPoint(sender, args);
@@ -58,8 +60,49 @@ public class HanabiCommand implements CommandExecutor, TabCompleter {
             plugin.getMessageManager().send(sender, "unknown-show", ph);
             return;
         }
+        if (show.getPermission() != null && !show.getPermission().isBlank()
+                && !sender.hasPermission(show.getPermission())) {
+            Map<String, String> ph = new HashMap<>();
+            ph.put("show", show.getDisplayNameColored());
+            plugin.getMessageManager().send(sender, "show-no-permission", ph);
+            return;
+        }
         if (!plugin.getFestivalManager().start(show)) {
             plugin.getMessageManager().send(sender, "already-running");
+        }
+    }
+
+    private void handleList(CommandSender sender) {
+        sender.sendMessage(plugin.getMessageManager().format("list-header"));
+        for (String id : plugin.getShowManager().getIds()) {
+            ShowDefinition show = plugin.getShowManager().get(id);
+            Map<String, String> ph = new HashMap<>();
+            ph.put("show", show.getDisplayNameColored());
+            ph.put("mode", show.getMode().name());
+            sender.sendMessage(plugin.getMessageManager().format("list-entry", ph));
+        }
+    }
+
+    private void handleStats(CommandSender sender) {
+        StatsManager stats = plugin.getStatsManager();
+        sender.sendMessage(plugin.getMessageManager().format("stats-header"));
+
+        Map<String, String> totalPh = new HashMap<>();
+        totalPh.put("total", String.valueOf(stats.getTotalLaunched()));
+        sender.sendMessage(plugin.getMessageManager().format("stats-total", totalPh));
+
+        List<StatsManager.PlayerStat> top = stats.getTopViewers(5);
+        Map<String, String> headerPh = new HashMap<>();
+        headerPh.put("limit", String.valueOf(top.size()));
+        sender.sendMessage(plugin.getMessageManager().format("stats-top-header", headerPh));
+
+        int rank = 1;
+        for (StatsManager.PlayerStat stat : top) {
+            Map<String, String> ph = new HashMap<>();
+            ph.put("rank", String.valueOf(rank++));
+            ph.put("name", stat.getName());
+            ph.put("watched", String.valueOf(stat.getWatched()));
+            sender.sendMessage(plugin.getMessageManager().format("stats-top-entry", ph));
         }
     }
 

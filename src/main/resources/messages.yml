@@ -7,9 +7,10 @@ prefix: "&6[花火大会] &r"
 
 no-permission: "&cこのコマンドを実行する権限がありません。"
 player-only: "&cこのコマンドはプレイヤーのみ実行できます。"
-usage: "&e使用法: /hanabi <start|stop|status|gui|setpoint|delpoint|points|reload> [引数]"
+usage: "&e使用法: /hanabi <start|stop|status|list|stats|gui|setpoint|delpoint|points|reload> [引数]"
 
 unknown-show: "&cショー '{show}' が見つかりません。"
+show-no-permission: "&cショー '{show}' を開始する権限がありません。"
 already-running: "&c花火大会はすでに開催中です。"
 not-running: "&c花火大会は開催されていません。"
 
@@ -27,3 +28,13 @@ points-list-entry: "&e- {point} &7({world}: {x}, {y}, {z})"
 
 status-running: "&a[開催中] &7ショー: &f{show} &7| 経過時間: &f{elapsed}秒"
 status-idle: "&7現在、花火大会は開催されていません。"
+
+bossbar-title: "&6花火大会 &7| &f{show} &7| 経過 &f{elapsed}&7秒"
+
+list-header: "&6--- 開催可能なショー一覧 ---"
+list-entry: "&e- {show} &7[{mode}]"
+
+stats-header: "&6--- 花火大会 統計 ---"
+stats-total: "&e累計打ち上げ数: &f{total}発"
+stats-top-header: "&6観覧数ランキング TOP{limit}"
+stats-top-entry: "&e{rank}. &f{name} &7- {watched}発観覧"

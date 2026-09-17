@@ -19,11 +19,12 @@ public class ShowDefinition {
     private final long repeatDelayTicks;
 
     private final FireworkPreset preset;
+    private final String permission;
 
     public ShowDefinition(String id, String displayName, ShowMode mode,
                            long intervalTicks, int fireworksPerLaunch, long durationSeconds,
                            List<ShowStep> steps, int repeat, long repeatDelayTicks,
-                           FireworkPreset preset) {
+                           FireworkPreset preset, String permission) {
         this.id = id;
         this.displayName = displayName;
         this.mode = mode;
@@ -34,6 +35,7 @@ public class ShowDefinition {
         this.repeat = repeat;
         this.repeatDelayTicks = repeatDelayTicks;
         this.preset = preset;
+        this.permission = permission;
     }
 
     public String getId() {
@@ -74,5 +76,9 @@ public class ShowDefinition {
 
     public FireworkPreset getPreset() {
         return preset;
+    }
+
+    public String getPermission() {
+        return permission;
     }
 }

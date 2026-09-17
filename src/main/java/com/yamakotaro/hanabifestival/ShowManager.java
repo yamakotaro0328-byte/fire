@@ -44,6 +44,7 @@ public class ShowManager {
         String displayName = section.getString("display-name", id);
         ShowMode mode = ShowMode.parse(section.getString("mode", "random"));
         FireworkPreset preset = readPreset(section);
+        String permission = section.getString("permission", null);
 
         if (mode == ShowMode.SEQUENCE) {
             List<ShowStep> steps = new ArrayList<>();
@@ -52,13 +53,13 @@ public class ShowManager {
             }
             int repeat = section.getInt("repeat", 1);
             long repeatDelay = section.getLong("repeat-delay-ticks", 0L);
-            return new ShowDefinition(id, displayName, mode, 0L, 0, 0L, steps, repeat, repeatDelay, preset);
+            return new ShowDefinition(id, displayName, mode, 0L, 0, 0L, steps, repeat, repeatDelay, preset, permission);
         }
 
         long interval = section.getLong("interval-ticks", 20L);
         int perLaunch = section.getInt("fireworks-per-launch", 3);
         long duration = section.getLong("duration-seconds", 0L);
-        return new ShowDefinition(id, displayName, mode, interval, perLaunch, duration, List.of(), 1, 0L, preset);
+        return new ShowDefinition(id, displayName, mode, interval, perLaunch, duration, List.of(), 1, 0L, preset, permission);
     }
 
     @SuppressWarnings("unchecked")

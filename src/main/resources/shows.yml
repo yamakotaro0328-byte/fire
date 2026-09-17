@@ -2,6 +2,9 @@
 #  花火大会 ショー定義
 #  mode: random   -> 一定間隔でランダムに打ち上げ続ける
 #  mode: sequence -> steps を時系列に沿って演出（フィナーレ等）
+#
+#  permission: を指定すると、そのショーの開始に hanabi.admin に加えて
+#  追加の権限が必要になる（VIP限定ショーなどに利用可能。省略時は制限なし）
 # ==========================================
 
 shows:
@@ -16,6 +19,7 @@ shows:
   finale:
     display-name: "&6&lグランドフィナーレ"
     mode: sequence
+    # permission: "hanabi.show.finale"
     repeat: 3
     repeat-delay-ticks: 40
     steps:
@@ -38,7 +42,7 @@ shows:
         power: 1
         radius: 25
         colors: ["FF00FF", "FFFF00", "00FF00"]
-        types: ["BALL", "BURST"]
+        types: ["BALL", "BURST", "CREEPER"]
 
       - delay-ticks: 30
         count: 8

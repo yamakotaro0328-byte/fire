@@ -2,7 +2,12 @@ package com.yamakotaro.hanabifestival;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.World;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -10,8 +15,10 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class FestivalManager {
 
@@ -24,6 +31,8 @@ public class FestivalManager {
     private boolean running = false;
     private ShowDefinition currentShow;
     private long startedAtMillis;
+    private long totalDurationSeconds;
+    private BossBar bossBar;
 
     public FestivalManager(HanabiFestivalPlugin plugin, PointManager pointManager,
                             ShowManager showManager, MessageManager messages) {
@@ -52,6 +61,7 @@ public class FestivalManager {
         running = true;
         currentShow = show;
         startedAtMillis = System.currentTimeMillis();
+        totalDurationSeconds = 0L;
 
         int countdown = plugin.getConfig().getInt("countdown-seconds", 3);
         if (countdown > 0) {
@@ -72,6 +82,14 @@ public class FestivalManager {
         }
         activeTasks.clear();
         currentShow = null;
+
+        if (bossBar != null) {
+            bossBar.removeAll();
+            bossBar = null;
+        }
+        plugin.getStageEffectManager().restore();
+        plugin.getStatsManager().save();
+
         messages.broadcast("stop-broadcast", null);
         return true;
     }
@@ -111,11 +129,16 @@ public class FestivalManager {
         placeholders.put("show", show.getDisplayNameColored());
         messages.broadcast("start-broadcast", placeholders);
 
+        applyStageEffects();
+
         if (show.getMode() == ShowMode.RANDOM) {
             startRandomMode(show);
         } else {
             startSequenceMode(show);
         }
+
+        startAmbientParticles();
+        startBossBar(show);
 
         long cheerInterval = plugin.getConfig().getLong("cheer-interval-seconds", 0L);
         if (cheerInterval > 0) {
@@ -138,12 +161,14 @@ public class FestivalManager {
             for (Location target : resolveTargets()) {
                 for (int i = 0; i < perLaunch; i++) {
                     FireworkLauncher.launch(FireworkLauncher.randomLocationAround(target, radius), preset);
+                    plugin.getStatsManager().recordLaunch();
                 }
             }
         }, 0L, Math.max(1L, show.getIntervalTicks()));
         activeTasks.add(task);
 
         long duration = show.getDurationSeconds();
+        totalDurationSeconds = duration;
         if (duration > 0) {
             BukkitTask endTask = Bukkit.getScheduler().runTaskLater(plugin, this::stop, duration * 20L);
             activeTasks.add(endTask);
@@ -171,6 +196,7 @@ public class FestivalManager {
                     for (Location target : resolveTargets()) {
                         for (int i = 0; i < step.getCount(); i++) {
                             FireworkLauncher.launch(FireworkLauncher.randomLocationAround(target, radius), preset);
+                            plugin.getStatsManager().recordLaunch();
                         }
                     }
                 }, delay);
@@ -178,9 +204,66 @@ public class FestivalManager {
             }
         }
 
-        long totalDuration = repeatCount * (stepsDuration + show.getRepeatDelayTicks());
-        BukkitTask endTask = Bukkit.getScheduler().runTaskLater(plugin, this::stop, totalDuration + 20L);
+        long totalTicks = repeatCount * (stepsDuration + show.getRepeatDelayTicks());
+        totalDurationSeconds = totalTicks / 20L;
+        BukkitTask endTask = Bukkit.getScheduler().runTaskLater(plugin, this::stop, totalTicks + 20L);
         activeTasks.add(endTask);
+    }
+
+    private void startAmbientParticles() {
+        if (!plugin.getConfig().getBoolean("ambient-particles", true) || pointManager.isEmpty()) {
+            return;
+        }
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            for (LaunchPoint point : pointManager.getAll().values()) {
+                Location location = point.toLocation();
+                if (location == null || location.getWorld() == null) {
+                    continue;
+                }
+                location.getWorld().spawnParticle(Particle.FLAME, location.clone().add(0, 1, 0),
+                        4, 0.4, 0.2, 0.4, 0.01);
+            }
+        }, 0L, 10L);
+        activeTasks.add(task);
+    }
+
+    private void startBossBar(ShowDefinition show) {
+        bossBar = Bukkit.createBossBar(bossBarTitle(show, 0), BarColor.YELLOW, BarStyle.SEGMENTED_10);
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            bossBar.addPlayer(player);
+        }
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            long elapsed = getElapsedSeconds();
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                bossBar.addPlayer(player);
+            }
+            bossBar.setTitle(bossBarTitle(show, elapsed));
+            if (totalDurationSeconds > 0) {
+                double progress = 1.0 - Math.min(1.0, (double) elapsed / totalDurationSeconds);
+                bossBar.setProgress(Math.max(0.0, progress));
+            } else {
+                double wave = (Math.sin(elapsed * 0.5) + 1.0) / 2.0;
+                bossBar.setProgress(Math.max(0.1, wave));
+            }
+        }, 0L, 20L);
+        activeTasks.add(task);
+    }
+
+    private String bossBarTitle(ShowDefinition show, long elapsed) {
+        Map<String, String> ph = new HashMap<>();
+        ph.put("show", show.getDisplayNameColored());
+        ph.put("elapsed", String.valueOf(elapsed));
+        return messages.format("bossbar-title", ph);
+    }
+
+    private void applyStageEffects() {
+        Set<World> worlds = new HashSet<>();
+        for (Location location : resolveTargets()) {
+            if (location.getWorld() != null) {
+                worlds.add(location.getWorld());
+            }
+        }
+        plugin.getStageEffectManager().apply(worlds);
     }
 
     private List<Location> resolveTargets() {

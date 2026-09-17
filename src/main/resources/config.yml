@@ -24,13 +24,25 @@ default:
     - "0000FF"
     - "FF00FF"
     - "FFFFFF"
+  # BALL(小玉) / BALL_LARGE(大玉) / STAR(星形) / BURST(破裂型) / CREEPER(クリーパー型)
   types:
     - "BALL"
     - "BALL_LARGE"
     - "STAR"
     - "BURST"
+    - "CREEPER"
   flicker: true
   trail: true
 
 # 開催中に定期的に歓声風のサウンドを鳴らす間隔（秒、0で無効）
 cheer-interval-seconds: 15
+
+# 打ち上げ地点の周辺に雰囲気演出の炎パーティクルを出すか（打ち上げ地点が登録されている場合のみ）
+ambient-particles: true
+
+# 開催中の天候・時間演出（対象ワールドは打ち上げ地点/観客がいるワールド）
+stage-effects:
+  # 開始時に夜（打ち上げ映えする時間帯）に固定し、終了後に元の時間へ戻す
+  force-night: true
+  # 開始時に雨・雷を止め、終了後に元の天候へ戻す
+  force-clear-weather: true
