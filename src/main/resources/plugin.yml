@@ -8,7 +8,7 @@ description: 打ち上げ地点・演出ショー・GUIを備えた本格的な�
 commands:
   hanabi:
     description: 花火大会を操作するコマンド
-    usage: /<command> <start|stop|status|list|stats|gui|setpoint|delpoint|points|reload>
+    usage: /<command> <start|stop|status|list|stats|gui|wand|pos1|pos2|area|setpoint|delpoint|points|reload>
     aliases: [花火大会, fireworksfestival]
 
 permissions:

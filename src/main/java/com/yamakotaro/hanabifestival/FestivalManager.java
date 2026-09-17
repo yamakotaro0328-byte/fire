@@ -18,14 +18,17 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
 public class FestivalManager {
 
     private final HanabiFestivalPlugin plugin;
+    private final AreaManager areaManager;
     private final PointManager pointManager;
     private final ShowManager showManager;
     private final MessageManager messages;
+    private final Random random = new Random();
 
     private final List<BukkitTask> activeTasks = new ArrayList<>();
     private boolean running = false;
@@ -34,9 +37,10 @@ public class FestivalManager {
     private long totalDurationSeconds;
     private BossBar bossBar;
 
-    public FestivalManager(HanabiFestivalPlugin plugin, PointManager pointManager,
+    public FestivalManager(HanabiFestivalPlugin plugin, AreaManager areaManager, PointManager pointManager,
                             ShowManager showManager, MessageManager messages) {
         this.plugin = plugin;
+        this.areaManager = areaManager;
         this.pointManager = pointManager;
         this.showManager = showManager;
         this.messages = messages;
@@ -158,11 +162,9 @@ public class FestivalManager {
         BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             int radius = preset.getRadius() != null ? preset.getRadius()
                     : plugin.getConfig().getInt("fallback-radius", 20);
-            for (Location target : resolveTargets()) {
-                for (int i = 0; i < perLaunch; i++) {
-                    FireworkLauncher.launch(FireworkLauncher.randomLocationAround(target, radius), preset);
-                    plugin.getStatsManager().recordLaunch();
-                }
+            for (Location location : resolveLaunchLocations(perLaunch, radius)) {
+                FireworkLauncher.launch(location, preset);
+                plugin.getStatsManager().recordLaunch();
             }
         }, 0L, Math.max(1L, show.getIntervalTicks()));
         activeTasks.add(task);
@@ -193,11 +195,9 @@ public class FestivalManager {
                 long delay = base + step.getDelayTicks();
 
                 BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    for (Location target : resolveTargets()) {
-                        for (int i = 0; i < step.getCount(); i++) {
-                            FireworkLauncher.launch(FireworkLauncher.randomLocationAround(target, radius), preset);
-                            plugin.getStatsManager().recordLaunch();
-                        }
+                    for (Location location : resolveLaunchLocations(step.getCount(), radius)) {
+                        FireworkLauncher.launch(location, preset);
+                        plugin.getStatsManager().recordLaunch();
                     }
                 }, delay);
                 activeTasks.add(task);
@@ -211,10 +211,29 @@ public class FestivalManager {
     }
 
     private void startAmbientParticles() {
-        if (!plugin.getConfig().getBoolean("ambient-particles", true) || pointManager.isEmpty()) {
+        if (!plugin.getConfig().getBoolean("ambient-particles", true)) {
+            return;
+        }
+        if (areaManager.isEmpty() && pointManager.isEmpty()) {
             return;
         }
         BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!areaManager.isEmpty()) {
+                for (Region region : areaManager.getAll().values()) {
+                    World world = region.getWorld();
+                    if (world == null) {
+                        continue;
+                    }
+                    for (int i = 0; i < 3; i++) {
+                        Location location = region.randomLocation(random);
+                        if (location != null) {
+                            world.spawnParticle(Particle.FLAME, location.clone().add(0, 1, 0),
+                                    2, 0.3, 0.1, 0.3, 0.01);
+                        }
+                    }
+                }
+                return;
+            }
             for (LaunchPoint point : pointManager.getAll().values()) {
                 Location location = point.toLocation();
                 if (location == null || location.getWorld() == null) {
@@ -257,31 +276,76 @@ public class FestivalManager {
     }
 
     private void applyStageEffects() {
-        Set<World> worlds = new HashSet<>();
-        for (Location location : resolveTargets()) {
-            if (location.getWorld() != null) {
-                worlds.add(location.getWorld());
-            }
-        }
-        plugin.getStageEffectManager().apply(worlds);
+        plugin.getStageEffectManager().apply(resolveWorlds());
     }
 
-    private List<Location> resolveTargets() {
-        List<Location> targets = new ArrayList<>();
+    /**
+     * 打ち上げ場所を優先順位で解決する: 登録エリア &gt; 登録ポイント &gt; オンラインプレイヤー周囲。
+     * count発ぶんの実際の打ち上げ座標をまとめて返す。
+     */
+    private List<Location> resolveLaunchLocations(int count, int fallbackRadius) {
+        List<Location> locations = new ArrayList<>();
+
+        if (!areaManager.isEmpty()) {
+            for (Region region : areaManager.getAll().values()) {
+                for (int i = 0; i < count; i++) {
+                    Location location = region.randomLocation(random);
+                    if (location != null) {
+                        locations.add(location);
+                    }
+                }
+            }
+            return locations;
+        }
+
+        if (!pointManager.isEmpty()) {
+            for (LaunchPoint point : pointManager.getAll().values()) {
+                Location base = point.toLocation();
+                if (base == null) {
+                    continue;
+                }
+                for (int i = 0; i < count; i++) {
+                    locations.add(FireworkLauncher.randomLocationAround(base, fallbackRadius));
+                }
+            }
+            return locations;
+        }
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            for (int i = 0; i < count; i++) {
+                locations.add(FireworkLauncher.randomLocationAround(player.getLocation(), fallbackRadius));
+            }
+        }
+        return locations;
+    }
+
+    private Set<World> resolveWorlds() {
+        Set<World> worlds = new HashSet<>();
+
+        if (!areaManager.isEmpty()) {
+            for (Region region : areaManager.getAll().values()) {
+                World world = region.getWorld();
+                if (world != null) {
+                    worlds.add(world);
+                }
+            }
+            return worlds;
+        }
+
         if (!pointManager.isEmpty()) {
             for (LaunchPoint point : pointManager.getAll().values()) {
                 Location location = point.toLocation();
-                if (location != null) {
-                    targets.add(location);
+                if (location != null && location.getWorld() != null) {
+                    worlds.add(location.getWorld());
                 }
             }
+            return worlds;
         }
-        if (targets.isEmpty()) {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                targets.add(player.getLocation());
-            }
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            worlds.add(player.getWorld());
         }
-        return targets;
+        return worlds;
     }
 
     private FireworkPreset defaultPreset() {
