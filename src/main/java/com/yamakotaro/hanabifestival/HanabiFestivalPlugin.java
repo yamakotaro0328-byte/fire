@@ -1,28 +1,65 @@
 package com.yamakotaro.hanabifestival;
 
+import com.yamakotaro.hanabifestival.gui.GuiListener;
+import com.yamakotaro.hanabifestival.gui.GuiManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class HanabiFestivalPlugin extends JavaPlugin {
 
+    private MessageManager messageManager;
+    private PointManager pointManager;
+    private ShowManager showManager;
     private FestivalManager festivalManager;
+    private GuiManager guiManager;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        this.festivalManager = new FestivalManager(this);
-        HanabiCommand command = new HanabiCommand(this, festivalManager);
+
+        this.messageManager = new MessageManager(this);
+        this.pointManager = new PointManager(this);
+        this.showManager = new ShowManager(this);
+        this.festivalManager = new FestivalManager(this, pointManager, showManager, messageManager);
+        this.guiManager = new GuiManager(this, festivalManager);
+
+        HanabiCommand command = new HanabiCommand(this);
         getCommand("hanabi").setExecutor(command);
         getCommand("hanabi").setTabCompleter(command);
+
+        getServer().getPluginManager().registerEvents(new GuiListener(), this);
     }
 
     @Override
     public void onDisable() {
         if (festivalManager != null) {
-            festivalManager.stop(false);
+            festivalManager.stop();
         }
+    }
+
+    public void reloadAll() {
+        reloadConfig();
+        messageManager.load();
+        pointManager.load();
+        showManager.load();
+    }
+
+    public MessageManager getMessageManager() {
+        return messageManager;
+    }
+
+    public PointManager getPointManager() {
+        return pointManager;
+    }
+
+    public ShowManager getShowManager() {
+        return showManager;
     }
 
     public FestivalManager getFestivalManager() {
         return festivalManager;
+    }
+
+    public GuiManager getGuiManager() {
+        return guiManager;
     }
 }

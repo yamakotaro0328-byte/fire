@@ -1,150 +1,219 @@
 package com.yamakotaro.hanabifestival;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Color;
-import org.bukkit.FireworkEffect;
 import org.bukkit.Location;
-import org.bukkit.World;
-import org.bukkit.entity.Firework;
+import org.bukkit.Sound;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.meta.FireworkMeta;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Random;
+import java.util.Map;
 
 public class FestivalManager {
 
     private final HanabiFestivalPlugin plugin;
-    private final Random random = new Random();
+    private final PointManager pointManager;
+    private final ShowManager showManager;
+    private final MessageManager messages;
 
-    private BukkitTask launchTask;
-    private BukkitTask endTask;
+    private final List<BukkitTask> activeTasks = new ArrayList<>();
     private boolean running = false;
+    private ShowDefinition currentShow;
+    private long startedAtMillis;
 
-    public FestivalManager(HanabiFestivalPlugin plugin) {
+    public FestivalManager(HanabiFestivalPlugin plugin, PointManager pointManager,
+                            ShowManager showManager, MessageManager messages) {
         this.plugin = plugin;
+        this.pointManager = pointManager;
+        this.showManager = showManager;
+        this.messages = messages;
     }
 
     public boolean isRunning() {
         return running;
     }
 
-    public boolean start() {
+    public ShowDefinition getCurrentShow() {
+        return currentShow;
+    }
+
+    public long getElapsedSeconds() {
+        return running ? (System.currentTimeMillis() - startedAtMillis) / 1000L : 0L;
+    }
+
+    public boolean start(ShowDefinition show) {
         if (running) {
             return false;
         }
         running = true;
+        currentShow = show;
+        startedAtMillis = System.currentTimeMillis();
 
-        long interval = Math.max(1L, plugin.getConfig().getLong("interval-ticks", 20L));
-        launchTask = Bukkit.getScheduler().runTaskTimer(plugin, this::launchWave, 0L, interval);
-
-        long durationSeconds = plugin.getConfig().getLong("duration-seconds", 0L);
-        if (durationSeconds > 0) {
-            endTask = Bukkit.getScheduler().runTaskLater(plugin, () -> stop(true), durationSeconds * 20L);
+        int countdown = plugin.getConfig().getInt("countdown-seconds", 3);
+        if (countdown > 0) {
+            runCountdown(countdown, show);
+        } else {
+            beginShow(show);
         }
         return true;
     }
 
-    public boolean stop(boolean announce) {
+    public boolean stop() {
         if (!running) {
             return false;
         }
         running = false;
-        if (launchTask != null) {
-            launchTask.cancel();
-            launchTask = null;
+        for (BukkitTask task : activeTasks) {
+            task.cancel();
         }
-        if (endTask != null) {
-            endTask.cancel();
-            endTask = null;
-        }
+        activeTasks.clear();
+        currentShow = null;
+        messages.broadcast("stop-broadcast", null);
         return true;
     }
 
-    private void launchWave() {
-        int perLaunch = Math.max(1, plugin.getConfig().getInt("fireworks-per-launch", 3));
-        int radius = Math.max(0, plugin.getConfig().getInt("radius", 20));
+    private void runCountdown(int seconds, ShowDefinition show) {
+        Map<String, String> placeholders = new HashMap<>();
+        placeholders.put("show", show.getDisplayNameColored());
 
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            for (int i = 0; i < perLaunch; i++) {
-                Location location = randomLocationAround(player.getLocation(), radius);
-                spawnFirework(location);
+        new BukkitRunnable() {
+            int remaining = seconds;
+
+            @Override
+            public void run() {
+                if (!running) {
+                    cancel();
+                    return;
+                }
+                if (remaining <= 0) {
+                    beginShow(show);
+                    cancel();
+                    return;
+                }
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    player.sendTitle(String.valueOf(remaining), messages.format("countdown", placeholders), 0, 20, 0);
+                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
+                }
+                remaining--;
             }
-        }
+        }.runTaskTimer(plugin, 0L, 20L);
     }
 
-    private Location randomLocationAround(Location center, int radius) {
-        World world = center.getWorld();
-        if (radius <= 0 || world == null) {
-            return center.clone();
-        }
-        double angle = random.nextDouble() * Math.PI * 2;
-        double distance = random.nextDouble() * radius;
-        double x = center.getX() + Math.cos(angle) * distance;
-        double z = center.getZ() + Math.sin(angle) * distance;
-        int y = world.getHighestBlockYAt((int) Math.floor(x), (int) Math.floor(z)) + 1;
-        return new Location(world, x, y, z);
-    }
-
-    private void spawnFirework(Location location) {
-        World world = location.getWorld();
-        if (world == null) {
+    private void beginShow(ShowDefinition show) {
+        if (!running) {
             return;
         }
+        Map<String, String> placeholders = new HashMap<>();
+        placeholders.put("show", show.getDisplayNameColored());
+        messages.broadcast("start-broadcast", placeholders);
 
-        Firework firework = world.spawn(location, Firework.class);
-        FireworkMeta meta = firework.getFireworkMeta();
-
-        List<Color> colors = loadColors();
-        List<Color> fadeColors = loadColors();
-        List<FireworkEffect.Type> types = loadTypes();
-
-        FireworkEffect.Builder builder = FireworkEffect.builder();
-        builder.withColor(pickRandom(colors, Color.WHITE));
-        if (!fadeColors.isEmpty() && random.nextBoolean()) {
-            builder.withFade(pickRandom(fadeColors, Color.WHITE));
+        if (show.getMode() == ShowMode.RANDOM) {
+            startRandomMode(show);
+        } else {
+            startSequenceMode(show);
         }
-        builder.with(pickRandom(types, FireworkEffect.Type.BALL));
-        builder.flicker(plugin.getConfig().getBoolean("flicker", true) && random.nextBoolean());
-        builder.trail(plugin.getConfig().getBoolean("trail", true) && random.nextBoolean());
 
-        meta.addEffect(builder.build());
-        meta.setPower(Math.max(0, Math.min(3, plugin.getConfig().getInt("power", 1))));
-        firework.setFireworkMeta(meta);
+        long cheerInterval = plugin.getConfig().getLong("cheer-interval-seconds", 0L);
+        if (cheerInterval > 0) {
+            BukkitTask cheerTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.6f, 1.2f);
+                }
+            }, cheerInterval * 20L, cheerInterval * 20L);
+            activeTasks.add(cheerTask);
+        }
     }
 
-    private List<Color> loadColors() {
-        List<String> hexColors = plugin.getConfig().getStringList("colors");
-        List<Color> colors = new ArrayList<>();
-        for (String hex : hexColors) {
-            try {
-                colors.add(Color.fromRGB(Integer.parseInt(hex.trim(), 16)));
-            } catch (NumberFormatException ignored) {
-                // 不正な色設定は無視する
+    private void startRandomMode(ShowDefinition show) {
+        FireworkPreset preset = show.getPreset().mergeWithDefault(defaultPreset());
+        int perLaunch = show.getFireworksPerLaunch();
+
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            int radius = preset.getRadius() != null ? preset.getRadius()
+                    : plugin.getConfig().getInt("fallback-radius", 20);
+            for (Location target : resolveTargets()) {
+                for (int i = 0; i < perLaunch; i++) {
+                    FireworkLauncher.launch(FireworkLauncher.randomLocationAround(target, radius), preset);
+                }
+            }
+        }, 0L, Math.max(1L, show.getIntervalTicks()));
+        activeTasks.add(task);
+
+        long duration = show.getDurationSeconds();
+        if (duration > 0) {
+            BukkitTask endTask = Bukkit.getScheduler().runTaskLater(plugin, this::stop, duration * 20L);
+            activeTasks.add(endTask);
+        }
+    }
+
+    private void startSequenceMode(ShowDefinition show) {
+        FireworkPreset showDefault = show.getPreset().mergeWithDefault(defaultPreset());
+
+        long stepsDuration = 0L;
+        for (ShowStep step : show.getSteps()) {
+            stepsDuration = Math.max(stepsDuration, step.getDelayTicks());
+        }
+
+        int repeatCount = Math.max(1, show.getRepeat());
+        for (int iteration = 0; iteration < repeatCount; iteration++) {
+            long base = iteration * (stepsDuration + show.getRepeatDelayTicks());
+            for (ShowStep step : show.getSteps()) {
+                FireworkPreset preset = step.getPreset().mergeWithDefault(showDefault);
+                int radius = preset.getRadius() != null ? preset.getRadius()
+                        : plugin.getConfig().getInt("fallback-radius", 20);
+                long delay = base + step.getDelayTicks();
+
+                BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    for (Location target : resolveTargets()) {
+                        for (int i = 0; i < step.getCount(); i++) {
+                            FireworkLauncher.launch(FireworkLauncher.randomLocationAround(target, radius), preset);
+                        }
+                    }
+                }, delay);
+                activeTasks.add(task);
             }
         }
-        return colors;
+
+        long totalDuration = repeatCount * (stepsDuration + show.getRepeatDelayTicks());
+        BukkitTask endTask = Bukkit.getScheduler().runTaskLater(plugin, this::stop, totalDuration + 20L);
+        activeTasks.add(endTask);
     }
 
-    private List<FireworkEffect.Type> loadTypes() {
-        List<String> names = plugin.getConfig().getStringList("types");
-        List<FireworkEffect.Type> types = new ArrayList<>();
-        for (String name : names) {
-            try {
-                types.add(FireworkEffect.Type.valueOf(name.trim().toUpperCase()));
-            } catch (IllegalArgumentException ignored) {
-                // 不正な形状設定は無視する
+    private List<Location> resolveTargets() {
+        List<Location> targets = new ArrayList<>();
+        if (!pointManager.isEmpty()) {
+            for (LaunchPoint point : pointManager.getAll().values()) {
+                Location location = point.toLocation();
+                if (location != null) {
+                    targets.add(location);
+                }
             }
         }
-        return types;
+        if (targets.isEmpty()) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                targets.add(player.getLocation());
+            }
+        }
+        return targets;
     }
 
-    private <T> T pickRandom(List<T> list, T fallback) {
-        if (list.isEmpty()) {
-            return fallback;
+    private FireworkPreset defaultPreset() {
+        ConfigurationSection section = plugin.getConfig().getConfigurationSection("default");
+        int fallbackRadius = plugin.getConfig().getInt("fallback-radius", 20);
+        if (section == null) {
+            return new FireworkPreset(1, fallbackRadius, List.of("FFFFFF"), List.of("BALL"), true, true);
         }
-        return list.get(random.nextInt(list.size()));
+        return new FireworkPreset(
+                section.getInt("power", 1),
+                fallbackRadius,
+                section.getStringList("colors"),
+                section.getStringList("types"),
+                section.getBoolean("flicker", true),
+                section.getBoolean("trail", true)
+        );
     }
 }

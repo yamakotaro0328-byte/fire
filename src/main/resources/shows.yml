@@ -1,0 +1,61 @@
+# ==========================================
+#  花火大会 ショー定義
+#  mode: random   -> 一定間隔でランダムに打ち上げ続ける
+#  mode: sequence -> steps を時系列に沿って演出（フィナーレ等）
+# ==========================================
+
+shows:
+
+  random:
+    display-name: "&e乱れ打ち"
+    mode: random
+    interval-ticks: 20
+    fireworks-per-launch: 3
+    duration-seconds: 0
+
+  finale:
+    display-name: "&6&lグランドフィナーレ"
+    mode: sequence
+    repeat: 3
+    repeat-delay-ticks: 40
+    steps:
+      - delay-ticks: 0
+        count: 2
+        power: 2
+        radius: 5
+        colors: ["FF0000", "FFD700"]
+        types: ["BALL_LARGE"]
+
+      - delay-ticks: 10
+        count: 4
+        power: 1
+        radius: 15
+        colors: ["00FFFF", "FFFFFF"]
+        types: ["BURST", "STAR"]
+
+      - delay-ticks: 20
+        count: 6
+        power: 1
+        radius: 25
+        colors: ["FF00FF", "FFFF00", "00FF00"]
+        types: ["BALL", "BURST"]
+
+      - delay-ticks: 30
+        count: 8
+        power: 2
+        radius: 30
+        colors: ["FF0000", "FFFFFF", "0000FF"]
+        types: ["BALL_LARGE", "BURST", "STAR"]
+
+  kickoff:
+    display-name: "&b開幕の一発"
+    mode: sequence
+    repeat: 1
+    repeat-delay-ticks: 0
+    steps:
+      - delay-ticks: 0
+        count: 1
+        power: 3
+        radius: 0
+        colors: ["FFFFFF"]
+        types: ["BALL_LARGE"]

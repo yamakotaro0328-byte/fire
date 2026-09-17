@@ -3,15 +3,15 @@ version: '${project.version}'
 main: com.yamakotaro.hanabifestival.HanabiFestivalPlugin
 api-version: '1.20'
 author: yamakotaro
-description: 花火大会イベントを開催できるプラグイン
+description: 打ち上げ地点・演出ショー・GUIを備えた本格的な花火大会イベントプラグイン
 
 commands:
   hanabi:
     description: 花火大会を操作するコマンド
-    usage: /<command> <start|stop|reload>
+    usage: /<command> <start|stop|status|gui|setpoint|delpoint|points|reload>
     aliases: [花火大会, fireworksfestival]
 
 permissions:
   hanabi.admin:
-    description: 花火大会の開始・停止・設定再読み込みを行う権限
+    description: 花火大会の開始・停止・地点設定・設定再読み込みなど全操作を行う権限
     default: op

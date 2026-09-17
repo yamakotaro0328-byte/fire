@@ -1,47 +1,36 @@
-# 花火大会プラグイン 設定ファイル
+# ==========================================
+#  HanabiFestival 全体設定
+# ==========================================
 
-# 花火を打ち上げる間隔（tick数、20tick = 1秒）
-interval-ticks: 20
+# デフォルトで開催するショーの名前（shows.ymlのキー）
+default-show: "random"
 
-# 1回の間隔で同時に打ち上げる花火の数
-fireworks-per-launch: 3
+# 開始前カウントダウン秒数（0で即時開始）
+countdown-seconds: 3
 
-# プレイヤーを中心に花火を打ち上げる半径（ブロック）
-radius: 20
+# 打ち上げ地点(points.yml)が1つも登録されていない場合に使用する
+# プレイヤー中心のランダム打ち上げ半径（ブロック）
+fallback-radius: 20
 
-# 花火の爆発の強さ（大きいほど高く上がる）
-power: 1
+# 各ショーで個別に指定がない場合に使われる花火の既定値
+default:
+  power: 1
+  colors:
+    - "FF0000"
+    - "FF8C00"
+    - "FFFF00"
+    - "00FF00"
+    - "00FFFF"
+    - "0000FF"
+    - "FF00FF"
+    - "FFFFFF"
+  types:
+    - "BALL"
+    - "BALL_LARGE"
+    - "STAR"
+    - "BURST"
+  flicker: true
+  trail: true
 
-# 花火大会の自動終了までの時間（秒）。0にすると /hanabi stop するまで終了しない
-duration-seconds: 0
-
-# 花火の色（16進RGB）。ランダムに1〜2色組み合わせて使用される
-colors:
-  - "FF0000"
-  - "FF8C00"
-  - "FFFF00"
-  - "00FF00"
-  - "00FFFF"
-  - "0000FF"
-  - "FF00FF"
-  - "FFFFFF"
-
-# 花火の爆発形状（BALL, BALL_LARGE, STAR, BURST, CREEPER）
-types:
-  - "BALL"
-  - "BALL_LARGE"
-  - "STAR"
-  - "BURST"
-
-# きらめき・尾を引く効果をランダムに付与するか
-flicker: true
-trail: true
-
-messages:
-  start: "&6&l花火大会&r&6が始まりました！"
-  stop: "&6花火大会が終了しました。"
-  already-running: "&c花火大会はすでに開催中です。"
-  not-running: "&c花火大会は開催されていません。"
-  reload: "&a設定を再読み込みしました。"
-  no-permission: "&cこのコマンドを実行する権限がありません。"
-  usage: "&e使用法: /hanabi <start|stop|reload>"
+# 開催中に定期的に歓声風のサウンドを鳴らす間隔（秒、0で無効）
+cheer-interval-seconds: 15

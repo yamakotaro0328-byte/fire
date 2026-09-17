@@ -1,0 +1,29 @@
+# ==========================================
+#  HanabiFestival メッセージ設定
+#  {show} {seconds} {point} {world} {x} {y} {z} {elapsed} が使用可能な箇所があります
+# ==========================================
+
+prefix: "&6[花火大会] &r"
+
+no-permission: "&cこのコマンドを実行する権限がありません。"
+player-only: "&cこのコマンドはプレイヤーのみ実行できます。"
+usage: "&e使用法: /hanabi <start|stop|status|gui|setpoint|delpoint|points|reload> [引数]"
+
+unknown-show: "&cショー '{show}' が見つかりません。"
+already-running: "&c花火大会はすでに開催中です。"
+not-running: "&c花火大会は開催されていません。"
+
+countdown: "&6まもなく &f{show} &6の開催です..."
+start-broadcast: "&6&l花火大会&r&6「&f{show}&6」が始まりました！"
+stop-broadcast: "&6花火大会が終了しました。"
+reload: "&a設定を再読み込みしました。"
+
+point-set: "&aポイント '{point}' を現在地に設定しました。"
+point-removed: "&aポイント '{point}' を削除しました。"
+point-not-found: "&cポイント '{point}' は存在しません。"
+points-empty: "&e登録されている打ち上げポイントはありません（プレイヤー周囲に自動で打ち上げます）。"
+points-list-header: "&6--- 打ち上げポイント一覧 ---"
+points-list-entry: "&e- {point} &7({world}: {x}, {y}, {z})"
+
+status-running: "&a[開催中] &7ショー: &f{show} &7| 経過時間: &f{elapsed}秒"
+status-idle: "&7現在、花火大会は開催されていません。"
