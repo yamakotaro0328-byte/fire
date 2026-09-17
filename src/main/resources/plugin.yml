@@ -1,0 +1,17 @@
+name: HanabiFestival
+version: '${project.version}'
+main: com.yamakotaro.hanabifestival.HanabiFestivalPlugin
+api-version: '1.20'
+author: yamakotaro
+description: 花火大会イベントを開催できるプラグイン
+
+commands:
+  hanabi:
+    description: 花火大会を操作するコマンド
+    usage: /<command> <start|stop|reload>
+    aliases: [花火大会, fireworksfestival]
+
+permissions:
+  hanabi.admin:
+    description: 花火大会の開始・停止・設定再読み込みを行う権限
+    default: op
